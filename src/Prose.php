@@ -7,8 +7,6 @@ namespace Hirasso\Prose;
 use Dom\HTMLDocument;
 use InvalidArgumentException;
 
-use function Hirasso\HTMLObfuscator\obfuscate;
-
 /**
  * Formats rich text / prose HTML (e.g. WYSIWYG field values).
  *
@@ -38,10 +36,6 @@ final class Prose
 
         if ($options->siteUrl !== null) {
             self::markExternalLinks($doc, $options);
-        }
-
-        if ($options->obfuscate) {
-            obfuscate($doc)->saveDocument();
         }
 
         self::removeEmptyElements($doc, $options->removeEmptyElements);

@@ -9,7 +9,6 @@
 A tiny, framework-agnostic formatter for WYSIWYG / rich text content. Pass a
 string, get a string back:
 
-- Obfuscate email/phone links against spam bots (via [`hirasso/html-obfuscator`](https://github.com/hirasso/html-obfuscator))
 - Mark external links (`target="_blank"`, custom attributes)
 - Strip tags to an allowlist
 - Remove whitespace-only elements (e.g. empty `<p>`)
@@ -26,7 +25,7 @@ composer require hirasso/prose
 use Hirasso\Prose\Prose;
 use Hirasso\Prose\ProseOptions;
 
-// Minimal: sensible defaults (obfuscate + prune empty <p>)
+// Minimal: sensible defaults
 echo Prose::format($html);
 
 // Configured
@@ -34,7 +33,6 @@ echo Prose::format($html, new ProseOptions(
     allowedTags: ['p', 'a', 'br', 'strong', 'em', 'ul', 'li'],
     siteUrl: 'https://example.com',      // required to detect external links
     removeEmptyElements: ['p'],
-    obfuscate: true,
 ));
 ```
 
@@ -48,8 +46,7 @@ echo Prose::format($html, new ProseOptions(
 | Option | Default | Purpose |
 |--------|---------|---------|
 | `allowedTags` | `null` | Tags to keep when stripping. `null` = don't strip. |
-| `obfuscate` | `true` | Obfuscate email/phone links. |
-| `removeEmptyElements` | `['p']` | Selectors of whitespace-only elements to prune. |
+| `removeEmptyElements` | `[]` | Selectors of whitespace-only elements to prune. |
 | `siteUrl` | `null` | Your site's URL. Required to detect external links. |
 | `externalLinkAttributes` | `['data-external' => '', 'target' => '_blank']` | Attributes added to external links. |
 
@@ -68,9 +65,21 @@ add_filter('acf/format_value/type=wysiwyg', function (mixed $value, $postID, arr
         siteUrl: home_url(),
     ));
 }, 11, 3);
+```
 
-// Inject the obfuscator client script once, in <head>:
-add_action('wp_head', fn () => print(\Hirasso\HTMLObfuscator\clientScript()));
+## Obfuscating email / phone links
+
+Prose doesn't obfuscate anything itself. Combine it with
+[`hirasso/html-obfuscator`](https://github.com/hirasso/html-obfuscator):
+
+```php
+use function Hirasso\HTMLObfuscator\obfuscate;
+use function Hirasso\HTMLObfuscator\clientScript;
+
+echo obfuscate(Prose::format($html))->saveHTML();
+
+// Render the client script once, in <head>:
+echo clientScript();
 ```
 
 ## License

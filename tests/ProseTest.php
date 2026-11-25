@@ -13,7 +13,7 @@ it('returns empty input untouched', function () {
 it('marks external links', function () {
     $result = Prose::format(
         '<p><a href="https://external.com">out</a> <a href="/internal">in</a></p>',
-        new ProseOptions(obfuscate: false, siteUrl: 'https://example.com'),
+        new ProseOptions(siteUrl: 'https://example.com'),
     );
 
     expect($result)
@@ -25,7 +25,6 @@ it('appends classes to external links instead of overwriting them', function () 
     $result = Prose::format(
         '<p><a class="btn" href="https://external.com">out</a></p>',
         new ProseOptions(
-            obfuscate: false,
             siteUrl: 'https://example.com',
             externalLinkAttributes: ['class' => 'external'],
         ),
@@ -38,7 +37,6 @@ it('sets a class on external links without one', function () {
     $result = Prose::format(
         '<p><a href="https://external.com">out</a></p>',
         new ProseOptions(
-            obfuscate: false,
             siteUrl: 'https://example.com',
             externalLinkAttributes: ['class' => 'external'],
         ),
@@ -50,7 +48,7 @@ it('sets a class on external links without one', function () {
 it('does not mark internal links as external', function () {
     $result = Prose::format(
         '<p><a href="/internal">in</a></p>',
-        new ProseOptions(obfuscate: false, siteUrl: 'https://example.com'),
+        new ProseOptions(siteUrl: 'https://example.com'),
     );
 
     expect($result)->not->toContain('data-external');
@@ -59,7 +57,7 @@ it('does not mark internal links as external', function () {
 it('strips tags to the allowlist', function () {
     $result = Prose::format(
         '<p>keep</p><script>alert(1)</script>',
-        new ProseOptions(obfuscate: false, allowedTags: ['p']),
+        new ProseOptions(allowedTags: ['p']),
     );
 
     expect($result)->toContain('<p>keep</p>')->not->toContain('<script>');
@@ -68,14 +66,20 @@ it('strips tags to the allowlist', function () {
 it('removes empty paragraphs', function () {
     $result = Prose::format(
         '<p>kept</p><p>&nbsp;</p><p>   </p>',
-        new ProseOptions(obfuscate: false, removeEmptyElements: ['p']),
+        new ProseOptions(removeEmptyElements: ['p']),
     );
 
     expect(substr_count($result, '<p'))->toBe(1);
 });
 
+it('leaves email and phone links untouched', function () {
+    $html = '<p><a href="mailto:jane@example.com">jane@example.com</a> <a href="tel:+49123456789">call</a></p>';
+
+    expect(Prose::format($html))->toBe($html);
+});
+
 it('does not wrap output in a body tag', function () {
-    $result = Prose::format('<p>hi</p>', new ProseOptions(obfuscate: false));
+    $result = Prose::format('<p>hi</p>', new ProseOptions());
 
     expect($result)->not->toContain('<body');
 });
@@ -97,7 +101,7 @@ it('throws on a head tag', function () {
 })->throws(InvalidArgumentException::class);
 
 it('accepts a bare prose fragment', function () {
-    $result = Prose::format('<p>hi</p>', new ProseOptions(obfuscate: false));
+    $result = Prose::format('<p>hi</p>', new ProseOptions());
 
     expect($result)->toBe('<p>hi</p>');
 });

@@ -1,6 +1,6 @@
 {
   "name": "hirasso/prose",
-  "description": "Format rich text / prose HTML: obfuscate addresses, mark external links, tidy empty tags 🐘",
+  "description": "Format rich text / prose HTML: mark external links, strip tags, tidy empty elements 🐘",
   "type": "library",
   "license": "MIT",
   "authors": [
@@ -10,8 +10,7 @@
     }
   ],
   "require": {
-    "php": "^8.4 | ^8.5",
-    "hirasso/html-obfuscator": ">=0.6"
+    "php": "^8.4 | ^8.5"
   },
   "require-dev": {
     "laravel/pint": "^1.20",
