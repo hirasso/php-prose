@@ -10,6 +10,17 @@ it('returns empty input untouched', function () {
     expect(Prose::format('   '))->toBe('   ');
 });
 
+it('preserves whitespace around and inside the body verbatim', function (string $html) {
+    expect(Prose::format($html))->toBe($html);
+})->with([
+    'fragment' => [" x "],
+    'fragment with newlines' => ["\n<p>a</p>\n"],
+    'after doctype' => ["<!doctype html>\n<p>a</p>"],
+    'after head' => ["<head></head>\n<p>a</p>"],
+    'after body' => ["<body>x</body>\n"],
+    'full document' => ["<!doctype html>\n<html>\n<head></head>\n<body>\nx\n</body>\n</html>\n"],
+]);
+
 it('marks external links', function () {
     $result = Prose::format(
         '<p><a href="https://external.com">out</a> <a href="/internal">in</a></p>',
