@@ -30,22 +30,19 @@ final class Prose
     ): string|HTMLDocument {
         $options ??= new ProseOptions();
 
+        $document = is_string($source)
+            ? HTMLDocument::createFromString($source, LIBXML_NOERROR)
+            : $source;
+
+        self::formatDocument($document, $options);
+
         if ($source instanceof HTMLDocument) {
-            self::formatDocument($source, $options);
-
-            return $source;
+            return $document;
         }
-
-        if (trim($source) === '') {
-            return $source;
-        }
-
-        $doc = HTMLDocument::createFromString($source, LIBXML_NOERROR);
-        self::formatDocument($doc, $options);
 
         [$before, $after] = self::getBeforeAndAfter($source);
 
-        return $before . ($doc->body->innerHTML ?? '') . $after;
+        return $before . ($document->body->innerHTML ?? '') . $after;
     }
 
     private static function formatDocument(HTMLDocument $doc, ProseOptions $options): void
