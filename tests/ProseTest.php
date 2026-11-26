@@ -84,21 +84,34 @@ it('does not wrap output in a body tag', function () {
     expect($result)->not->toContain('<body');
 });
 
-it('throws on a full html document', function () {
-    Prose::format('<html><body><p>hi</p></body></html>');
-})->throws(InvalidArgumentException::class);
+it('formats only the body of a full document string, preserving everything around it verbatim', function () {
+    $html = "<!doctype html>\n<html lang=\"en\">\n<head><title>t</title><style>.a{}</style><!-- meta --></head>\n"
+        . '<body class="x"><p>keep</p><p> </p><span>x</span></body></html><!-- bottom -->';
 
-it('throws on a body wrapper', function () {
-    Prose::format('<body>foo</body>');
-})->throws(InvalidArgumentException::class);
+    expect(Prose::format($html, new ProseOptions(allowedTags: ['p'], removeEmptyElements: ['p'])))
+        ->toBe("<!doctype html>\n<html lang=\"en\">\n<head><title>t</title><style>.a{}</style><!-- meta --></head>\n"
+            . '<body class="x"><p>keep</p>x</body></html><!-- bottom -->');
+});
 
-it('throws on a doctype', function () {
-    Prose::format('<!doctype html><p>hi</p>');
-})->throws(InvalidArgumentException::class);
+it('preserves a body wrapper', function () {
+    expect(Prose::format('<body><p>hi</p></body>'))->toBe('<body><p>hi</p></body>');
+});
 
-it('throws on a head tag', function () {
-    Prose::format('<head><title>x</title></head><p>hi</p>');
-})->throws(InvalidArgumentException::class);
+it('preserves a lone doctype', function () {
+    expect(Prose::format('<!doctype html><p>hi</p>'))->toBe('<!doctype html><p>hi</p>');
+});
+
+it('preserves the head of a document without a body tag', function () {
+    expect(Prose::format('<head><title>x</title></head><p>hi</p>', new ProseOptions(allowedTags: ['p'])))
+        ->toBe('<head><title>x</title></head><p>hi</p>');
+});
+
+it('ignores body tags inside comments and raw text elements', function () {
+    $html = '<html><head><title><body></title><script>"<body>"</script></head>'
+        . '<body><p>hi</p></body><!-- </body> --></html>';
+
+    expect(Prose::format($html))->toBe($html);
+});
 
 it('unwraps nested disallowed tags and removes comments', function () {
     $result = Prose::format(

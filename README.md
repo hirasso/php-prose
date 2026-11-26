@@ -36,10 +36,9 @@ echo Prose::format($html, new ProseOptions(
 ));
 ```
 
-> [!NOTE]
-> A string passed to `Prose::format()` must be a **prose fragment**, not a full HTML document. It
-> throws an `InvalidArgumentException` if the string contains `<!doctype>`,
-> `<html>`, `<head>` or `<body>`.
+`Prose::format()` accepts an HTML fragment or a full (or partial) HTML document. Only the
+body is formatted; the doctype, `<head>`, body attributes, comments and anything wrapping
+the body are preserved verbatim.
 
 If you already have a `Dom\HTMLDocument` (e.g. from another DOM-based tool), pass it
 directly. Only its body is formatted, in place, and the same document is returned:

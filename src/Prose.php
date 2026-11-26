@@ -7,7 +7,6 @@ namespace Hirasso\Prose;
 use Dom\Element;
 use Dom\HTMLDocument;
 use Dom\XPath;
-use InvalidArgumentException;
 
 /**
  * Formats rich text / prose HTML (e.g. WYSIWYG field values).
@@ -18,10 +17,10 @@ use InvalidArgumentException;
 final class Prose
 {
     /**
-     * Format a prose HTML fragment or the body of a `Dom\HTMLDocument`.
+     * Format the body of an HTML fragment, document or `Dom\HTMLDocument`.
      *
-     * A string returns the formatted HTML. A `Dom\HTMLDocument` is modified in
-     * place and returned.
+     * A string returns the formatted HTML, with anything around the body preserved verbatim.
+     * A `Dom\HTMLDocument` is modified in place and returned.
      *
      * @return ($source is string ? string : HTMLDocument)
      */
@@ -41,12 +40,12 @@ final class Prose
             return $source;
         }
 
-        self::assertIsFragment($source);
-
         $doc = HTMLDocument::createFromString($source, LIBXML_NOERROR);
         self::formatDocument($doc, $options);
 
-        return $doc->body->innerHTML ?? '';
+        [$before, $after] = self::getBeforeAndAfter($source);
+
+        return $before . ($doc->body->innerHTML ?? '') . $after;
     }
 
     private static function formatDocument(HTMLDocument $doc, ProseOptions $options): void
@@ -95,16 +94,52 @@ final class Prose
     }
 
     /**
-     * Guard against full HTML documents: Prose only formats prose fragments.
+     * Get the strings before and after the body's content, so that only the
+     * body gets re-serialized and everything around it is preserved verbatim.
+     * Falls back to `</head>`, `<html>` or the doctype if there is no `<body>`.
+     *
+     * @return array{0: string, 1: string}
      */
-    private static function assertIsFragment(string $html): void
+    private static function getBeforeAndAfter(string $source): array
     {
-        if (preg_match('/<!doctype[\s>]|<(?:html|head|body)[\s>]/i', $html) === 1) {
-            throw new InvalidArgumentException(
-                'Prose::format() expects a prose fragment, not a full HTML document '
-                . '(<!doctype>, <html>, <head> or <body> found).'
-            );
-        }
+        /** blank out comments and raw text elements, so tags inside them aren't matched */
+        $masked = preg_replace_callback(
+            '/<!--.*?(?:-->|$)|<(script|style|title|textarea)\b.*?(?:<\/\1\s*>|$)/is',
+            fn ($match) => str_repeat(' ', strlen($match[0])),
+            $source
+        ) ?? $source;
+
+        $start = self::getOffsetAfter($masked, '/<body(?=[\s\/>])[^>]*>/i')
+            ?? self::getOffsetAfter($masked, '/<\/head\s*>/i')
+            ?? self::getOffsetAfter($masked, '/<html(?=[\s\/>])[^>]*>/i')
+            ?? self::getOffsetAfter($masked, '/<!doctype[^>]*>/i')
+            ?? 0;
+
+        $end = self::getOffset($masked, '/<\/body\s*>/i', $start)
+            ?? self::getOffset($masked, '/<\/html\s*>/i', $start)
+            ?? strlen($source);
+
+        return [substr($source, 0, $start), substr($source, $end)];
+    }
+
+    /**
+     * Get the offset of the first match of $pattern, starting at $offset
+     */
+    private static function getOffset(string $subject, string $pattern, int $offset = 0): ?int
+    {
+        return preg_match($pattern, $subject, $match, PREG_OFFSET_CAPTURE, $offset) === 1
+            ? $match[0][1]
+            : null;
+    }
+
+    /**
+     * Get the offset right after the first match of $pattern
+     */
+    private static function getOffsetAfter(string $subject, string $pattern): ?int
+    {
+        return preg_match($pattern, $subject, $match, PREG_OFFSET_CAPTURE) === 1
+            ? $match[0][1] + strlen($match[0][0])
+            : null;
     }
 
     /**
