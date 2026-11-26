@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Hirasso\Prose;
 
+use Dom\Element;
 use Dom\HTMLDocument;
+use Dom\XPath;
 use InvalidArgumentException;
 
 /**
@@ -16,31 +18,80 @@ use InvalidArgumentException;
 final class Prose
 {
     /**
-     * Format a prose HTML string.
+     * Format a prose HTML fragment or the body of a `Dom\HTMLDocument`.
+     *
+     * A string returns the formatted HTML. A `Dom\HTMLDocument` is modified in
+     * place and returned.
+     *
+     * @return ($source is string ? string : HTMLDocument)
      */
-    public static function format(string $html, ?ProseOptions $options = null): string
-    {
-        if (trim($html) === '') {
-            return $html;
-        }
-
-        self::assertIsFragment($html);
-
+    public static function format(
+        string|HTMLDocument $source,
+        ?ProseOptions $options = null,
+    ): string|HTMLDocument {
         $options ??= new ProseOptions();
 
-        if ($options->allowedTags !== null) {
-            $html = strip_tags($html, $options->allowedTags);
+        if ($source instanceof HTMLDocument) {
+            self::formatDocument($source, $options);
+
+            return $source;
         }
 
-        $doc = HTMLDocument::createFromString($html, LIBXML_NOERROR);
-
-        if ($options->siteUrl !== null) {
-            self::markExternalLinks($doc, $options);
+        if (trim($source) === '') {
+            return $source;
         }
 
-        self::removeEmptyElements($doc, $options->removeEmptyElements);
+        self::assertIsFragment($source);
+
+        $doc = HTMLDocument::createFromString($source, LIBXML_NOERROR);
+        self::formatDocument($doc, $options);
 
         return $doc->body->innerHTML ?? '';
+    }
+
+    private static function formatDocument(HTMLDocument $doc, ProseOptions $options): void
+    {
+        $body = $doc->body;
+
+        if ($body === null) {
+            return;
+        }
+
+        if ($options->allowedTags !== null) {
+            self::stripTags($doc, $body, $options->allowedTags);
+        }
+
+        if ($options->siteUrl !== null) {
+            self::markExternalLinks($body, $options);
+        }
+
+        self::removeEmptyElements($body, $options->removeEmptyElements);
+    }
+
+    /**
+     * Unwrap elements not in $allowedTags (keeping their content) and remove comments, like `strip_tags()`.
+     * Disallowed `<script>` / `<style>` are removed with their content.
+     * @param list<string> $allowedTags
+     */
+    private static function stripTags(HTMLDocument $doc, Element $root, array $allowedTags): void
+    {
+        $allowed = array_map(strtolower(...), $allowedTags);
+
+        foreach ($root->querySelectorAll('*') as $el) {
+            $tag = strtolower($el->localName);
+
+            if (in_array($tag, $allowed, true)) {
+                continue;
+            }
+
+            in_array($tag, ['script', 'style'], true)
+                ? $el->remove()
+                : $el->replaceWith(...iterator_to_array($el->childNodes));
+        }
+
+        foreach ((new XPath($doc))->query('.//comment()', $root) as $comment) {
+            $comment->parentNode?->removeChild($comment);
+        }
     }
 
     /**
@@ -62,11 +113,11 @@ final class Prose
      * The `class` attribute is appended to any existing classes; all other
      * attributes overwrite their existing value.
      */
-    private static function markExternalLinks(HTMLDocument $doc, ProseOptions $options): void
+    private static function markExternalLinks(Element $root, ProseOptions $options): void
     {
         $siteUrl = (string) $options->siteUrl;
 
-        foreach ($doc->querySelectorAll('a[href]') as $el) {
+        foreach ($root->querySelectorAll('a[href]') as $el) {
             if (!self::isExternalUrl($el->getAttribute('href') ?? '', $siteUrl)) {
                 continue;
             }
@@ -111,7 +162,7 @@ final class Prose
      * Remove whitespace-only elements matching $selector.
      * @param list<string> $selectors
      */
-    private static function removeEmptyElements(HTMLDocument $doc, array $selectors): void
+    private static function removeEmptyElements(Element $root, array $selectors): void
     {
         $toRemove = [];
         $selectorString = implode(',', $selectors);
@@ -120,7 +171,7 @@ final class Prose
             return;
         }
 
-        foreach ($doc->querySelectorAll($selectorString) as $node) {
+        foreach ($root->querySelectorAll($selectorString) as $node) {
             if (self::isWhitespaceOnly((string) $node->textContent)) {
                 $toRemove[] = $node;
             }

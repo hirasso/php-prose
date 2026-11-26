@@ -37,15 +37,22 @@ echo Prose::format($html, new ProseOptions(
 ```
 
 > [!NOTE]
-> `Prose::format()` expects a **prose fragment**, not a full HTML document. It
-> throws an `InvalidArgumentException` if the input contains `<!doctype>`,
+> A string passed to `Prose::format()` must be a **prose fragment**, not a full HTML document. It
+> throws an `InvalidArgumentException` if the string contains `<!doctype>`,
 > `<html>`, `<head>` or `<body>`.
+
+If you already have a `Dom\HTMLDocument` (e.g. from another DOM-based tool), pass it
+directly. Only its body is formatted, in place, and the same document is returned:
+
+```php
+$doc = Prose::format($doc, $options);
+```
 
 ### Options
 
 | Option | Default | Purpose |
 |--------|---------|---------|
-| `allowedTags` | `null` | Tags to keep when stripping. `null` = don't strip. |
+| `allowedTags` | `null` | Tags to keep. Other elements are unwrapped (content kept), comments removed. `null` = don't strip. |
 | `removeEmptyElements` | `[]` | Selectors of whitespace-only elements to prune. |
 | `siteUrl` | `null` | Your site's URL. Required to detect external links. |
 | `externalLinkAttributes` | `['data-external' => '', 'target' => '_blank']` | Attributes added to external links. |

@@ -100,6 +100,69 @@ it('throws on a head tag', function () {
     Prose::format('<head><title>x</title></head><p>hi</p>');
 })->throws(InvalidArgumentException::class);
 
+it('unwraps nested disallowed tags and removes comments', function () {
+    $result = Prose::format(
+        '<p>a <span>b <em>c</em></span><!-- note --></p>',
+        new ProseOptions(allowedTags: ['p', 'em']),
+    );
+
+    expect($result)->toBe('<p>a b <em>c</em></p>');
+});
+
+it('keeps allowed nodes of a document intact when stripping', function () {
+    $doc = Dom\HTMLDocument::createFromString('<!doctype html><body><p>keep <span>x</span></p></body>', LIBXML_NOERROR);
+    $p = $doc->querySelector('p');
+
+    Prose::format($doc, new ProseOptions(allowedTags: ['p']));
+
+    expect($doc->querySelector('p'))->toBe($p)
+        ->and($p?->isConnected)->toBeTrue();
+});
+
+it('only formats the body of a document', function () {
+    $doc = Dom\HTMLDocument::createFromString(
+        '<!doctype html><html><head><script src="/app.js"></script><title>x</title></head><body><script></script></body></html>',
+        LIBXML_NOERROR,
+    );
+
+    Prose::format($doc, new ProseOptions(allowedTags: ['p'], removeEmptyElements: ['script']));
+
+    expect($doc->head?->innerHTML)->toBe('<script src="/app.js"></script><title>x</title>')
+        ->and($doc->body?->innerHTML)->toBe('');
+});
+
+it('formats a document in place', function () {
+    $doc = Dom\HTMLDocument::createFromString(
+        '<!doctype html><html><head><title>x</title></head><body><p><a href="https://external.com">out</a></p><p> </p><script>alert(1)</script></body></html>',
+        LIBXML_NOERROR,
+    );
+
+    $result = Prose::format($doc, new ProseOptions(
+        allowedTags: ['p', 'a'],
+        siteUrl: 'https://example.com',
+        removeEmptyElements: ['p'],
+    ));
+
+    expect($result)->toBe($doc)
+        ->and($doc->title)->toBe('x')
+        ->and($doc->body?->innerHTML)->toBe('<p><a href="https://external.com" data-external="" target="_blank">out</a></p>');
+});
+
+it('removes disallowed script and style elements with their content', function () {
+    $result = Prose::format(
+        '<p>hi</p><script>track("x")</script><style>.a{color:red}</style>',
+        new ProseOptions(allowedTags: ['p']),
+    );
+
+    expect($result)->toBe('<p>hi</p>');
+});
+
+it('keeps script and style elements when allowed', function () {
+    $html = '<p>hi</p><script>track("x")</script><style>.a{color:red}</style>';
+
+    expect(Prose::format($html, new ProseOptions(allowedTags: ['p', 'script', 'style'])))->toBe($html);
+});
+
 it('accepts a bare prose fragment', function () {
     $result = Prose::format('<p>hi</p>', new ProseOptions());
 
